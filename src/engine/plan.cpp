@@ -31,8 +31,7 @@ static HRESULT PlanPackagesHelper(
     __in BURN_VARIABLES* pVariables,
     __in BOOTSTRAPPER_DISPLAY display,
     __in BOOTSTRAPPER_RELATION_TYPE relationType,
-    __in_z_opt LPCWSTR wzLayoutDirectory,
-    __inout HANDLE* phSyncpointEvent
+    __in_z_opt LPCWSTR wzLayoutDirectory
     );
 static HRESULT InitializePackage(
     __in BURN_PLAN* pPlan,
@@ -564,13 +563,12 @@ extern "C" HRESULT PlanPackages(
     __in BURN_VARIABLES* pVariables,
     __in BOOTSTRAPPER_DISPLAY display,
     __in BOOTSTRAPPER_RELATION_TYPE relationType,
-    __in_z_opt LPCWSTR wzLayoutDirectory,
-    __inout HANDLE* phSyncpointEvent
+    __in_z_opt LPCWSTR wzLayoutDirectory
     )
 {
     HRESULT hr = S_OK;
     
-    hr = PlanPackagesHelper(pPackages->rgPackages, pPackages->cPackages, TRUE, pUX, pPlan, pLog, pVariables, display, relationType, wzLayoutDirectory, phSyncpointEvent);
+    hr = PlanPackagesHelper(pPackages->rgPackages, pPackages->cPackages, TRUE, pUX, pPlan, pLog, pVariables, display, relationType, wzLayoutDirectory);
 
     return hr;
 }
@@ -773,8 +771,7 @@ extern "C" HRESULT PlanPassThroughBundle(
     __in BURN_LOGGING* pLog,
     __in BURN_VARIABLES* pVariables,
     __in BOOTSTRAPPER_DISPLAY display,
-    __in BOOTSTRAPPER_RELATION_TYPE relationType,
-    __inout HANDLE* phSyncpointEvent
+    __in BOOTSTRAPPER_RELATION_TYPE relationType
     )
 {
     HRESULT hr = S_OK;
@@ -782,7 +779,7 @@ extern "C" HRESULT PlanPassThroughBundle(
     // Plan passthrough package.
     // Passthrough packages are never cleaned up by the calling bundle (they delete themselves when appropriate)
     // so we don't need to plan clean up.
-    hr = PlanPackagesHelper(pPackage, 1, FALSE, pUX, pPlan, pLog, pVariables, display, relationType, NULL, phSyncpointEvent);
+    hr = PlanPackagesHelper(pPackage, 1, FALSE, pUX, pPlan, pLog, pVariables, display, relationType, NULL);
     ExitOnFailure(hr, "Failed to process passthrough package.");
 
 LExit:
@@ -796,14 +793,13 @@ extern "C" HRESULT PlanUpdateBundle(
     __in BURN_LOGGING* pLog,
     __in BURN_VARIABLES* pVariables,
     __in BOOTSTRAPPER_DISPLAY display,
-    __in BOOTSTRAPPER_RELATION_TYPE relationType,
-    __inout HANDLE* phSyncpointEvent
+    __in BOOTSTRAPPER_RELATION_TYPE relationType
     )
 {
     HRESULT hr = S_OK;
 
     // Plan update package.
-    hr = PlanPackagesHelper(pPackage, 1, TRUE, pUX, pPlan, pLog, pVariables, display, relationType, NULL, phSyncpointEvent);
+    hr = PlanPackagesHelper(pPackage, 1, TRUE, pUX, pPlan, pLog, pVariables, display, relationType, NULL);
     ExitOnFailure(hr, "Failed to process update package.");
 
 LExit:
@@ -820,13 +816,13 @@ static HRESULT PlanPackagesHelper(
     __in BURN_VARIABLES* pVariables,
     __in BOOTSTRAPPER_DISPLAY display,
     __in BOOTSTRAPPER_RELATION_TYPE relationType,
-    __in_z_opt LPCWSTR wzLayoutDirectory,
-    __inout HANDLE* phSyncpointEvent
+    __in_z_opt LPCWSTR wzLayoutDirectory
     )
 {
     HRESULT hr = S_OK;
     BOOL fBundlePerMachine = pPlan->fPerMachine; // bundle is per-machine if plan starts per-machine.
     BURN_ROLLBACK_BOUNDARY* pRollbackBoundary = NULL;
+    HANDLE hSyncpointEvent = NULL;
 
     // Initialize the packages.
     for (DWORD i = 0; i < cPackages; ++i)
@@ -857,7 +853,7 @@ static HRESULT PlanPackagesHelper(
         DWORD iPackage = (BOOTSTRAPPER_ACTION_UNINSTALL == pPlan->action) ? cPackages - 1 - i : i;
         BURN_PACKAGE* pPackage = rgPackages + iPackage;
 
-        hr = ProcessPackage(fBundlePerMachine, pUX, pPlan, pPackage, pLog, pVariables, display, wzLayoutDirectory, phSyncpointEvent, &pRollbackBoundary);
+        hr = ProcessPackage(fBundlePerMachine, pUX, pPlan, pPackage, pLog, pVariables, display, wzLayoutDirectory, &hSyncpointEvent, &pRollbackBoundary);
         ExitOnFailure(hr, "Failed to process package.");
     }
 
@@ -1123,10 +1119,11 @@ extern "C" HRESULT PlanExecutePackage(
         hr = AddCachePackage(pPlan, pPackage, phSyncpointEvent);
         ExitOnFailure(hr, "Failed to plan cache package.");
     }
-    else if (BURN_CACHE_STATE_COMPLETE != pPackage->cache && NeedsCache(pPackage, FALSE))
+    else if (!pPackage->fCached && NeedsCache(pPackage, FALSE))
     {
+        // TODO: this decision should be made during apply instead of plan based on whether the package is actually cached.
         // If the package is not in the cache, disable any rollback that would require the package from the cache.
-        LogId(REPORT_STANDARD, MSG_PLAN_DISABLING_ROLLBACK_NO_CACHE, pPackage->sczId, LoggingCacheStateToString(pPackage->cache), LoggingActionStateToString(pPackage->rollback));
+        LogId(REPORT_STANDARD, MSG_PLAN_DISABLING_ROLLBACK_NO_CACHE, pPackage->sczId, LoggingActionStateToString(pPackage->rollback));
         pPackage->rollback = BOOTSTRAPPER_ACTION_STATE_NONE;
     }
 
@@ -1159,19 +1156,19 @@ extern "C" HRESULT PlanExecutePackage(
     switch (pPackage->type)
     {
     case BURN_PACKAGE_TYPE_EXE:
-        hr = ExeEnginePlanAddPackage(NULL, pPackage, pPlan, pLog, pVariables, *phSyncpointEvent, pPackage->fAcquire);
+        hr = ExeEnginePlanAddPackage(NULL, pPackage, pPlan, pLog, pVariables, *phSyncpointEvent);
         break;
 
     case BURN_PACKAGE_TYPE_MSI:
-        hr = MsiEnginePlanAddPackage(display, pUserExperience, pPackage, pPlan, pLog, pVariables, *phSyncpointEvent, pPackage->fAcquire);
+        hr = MsiEnginePlanAddPackage(display, pUserExperience, pPackage, pPlan, pLog, pVariables, *phSyncpointEvent);
         break;
 
     case BURN_PACKAGE_TYPE_MSP:
-        hr = MspEnginePlanAddPackage(display, pUserExperience, pPackage, pPlan, pLog, pVariables, *phSyncpointEvent, pPackage->fAcquire);
+        hr = MspEnginePlanAddPackage(display, pUserExperience, pPackage, pPlan, pLog, pVariables, *phSyncpointEvent);
         break;
 
     case BURN_PACKAGE_TYPE_MSU:
-        hr = MsuEnginePlanAddPackage(pPackage, pPlan, pLog, pVariables, *phSyncpointEvent, pPackage->fAcquire);
+        hr = MsuEnginePlanAddPackage(pPackage, pPlan, pLog, pVariables, *phSyncpointEvent);
         break;
 
     default:
@@ -1365,7 +1362,6 @@ extern "C" HRESULT PlanRelatedBundlesComplete(
     __in BURN_PLAN* pPlan,
     __in BURN_LOGGING* pLog,
     __in BURN_VARIABLES* pVariables,
-    __inout HANDLE* phSyncpointEvent,
     __in DWORD dwExecuteActionEarlyIndex
     )
 {
@@ -1485,7 +1481,7 @@ extern "C" HRESULT PlanRelatedBundlesComplete(
                 }
             }
 
-            hr = ExeEnginePlanAddPackage(pdwInsertIndex, &pRelatedBundle->package, pPlan, pLog, pVariables, *phSyncpointEvent, FALSE);
+            hr = ExeEnginePlanAddPackage(pdwInsertIndex, &pRelatedBundle->package, pPlan, pLog, pVariables, NULL);
             ExitOnFailure(hr, "Failed to add to plan related bundle: %ls", pRelatedBundle->package.sczId);
 
             // Calculate package states based on reference count for addon and patch related bundles.
@@ -1557,11 +1553,8 @@ extern "C" HRESULT PlanCleanPackage(
     BOOL fPlanCleanPackage = FALSE;
     BURN_CLEAN_ACTION* pCleanAction = NULL;
 
-    // The following is a complex set of logic that determines when a package should be cleaned
-    // from the cache. Start by noting that we only clean if the package is being acquired or
-    // already cached and the package is not supposed to always be cached.
-    if ((pPackage->fAcquire || BURN_CACHE_STATE_PARTIAL == pPackage->cache || BURN_CACHE_STATE_COMPLETE == pPackage->cache) &&
-        (BURN_CACHE_TYPE_ALWAYS > pPackage->cacheType || BOOTSTRAPPER_ACTION_CACHE > pPlan->action))
+    // The following is a complex set of logic that determines when a package should be cleaned from the cache.
+    if (BURN_CACHE_TYPE_ALWAYS > pPackage->cacheType || BOOTSTRAPPER_ACTION_CACHE > pPlan->action)
     {
         // The following are all different reasons why the package should be cleaned from the cache.
         // The else-ifs are used to make the conditions easier to see (rather than have them combined
@@ -1604,7 +1597,7 @@ extern "C" HRESULT PlanCleanPackage(
 
         pCleanAction->pPackage = pPackage;
 
-        pPackage->fUncache = TRUE;
+        pPackage->fPlannedUncache = TRUE;
 
         if (pPackage->fCanAffectRegistration)
         {
@@ -1619,8 +1612,7 @@ LExit:
 extern "C" HRESULT PlanExecuteCacheSyncAndRollback(
     __in BURN_PLAN* pPlan,
     __in BURN_PACKAGE* pPackage,
-    __in HANDLE hCacheEvent,
-    __in BOOL fPlanPackageCacheRollback
+    __in HANDLE hCacheEvent
     )
 {
     HRESULT hr = S_OK;
@@ -1632,17 +1624,14 @@ extern "C" HRESULT PlanExecuteCacheSyncAndRollback(
     pAction->type = BURN_EXECUTE_ACTION_TYPE_WAIT_SYNCPOINT;
     pAction->syncpoint.hEvent = hCacheEvent;
 
-    if (fPlanPackageCacheRollback)
-    {
-        hr = PlanAppendRollbackAction(pPlan, &pAction);
-        ExitOnFailure(hr, "Failed to append rollback action.");
+    hr = PlanAppendRollbackAction(pPlan, &pAction);
+    ExitOnFailure(hr, "Failed to append rollback action.");
 
-        pAction->type = BURN_EXECUTE_ACTION_TYPE_UNCACHE_PACKAGE;
-        pAction->uncachePackage.pPackage = pPackage;
+    pAction->type = BURN_EXECUTE_ACTION_TYPE_UNCACHE_PACKAGE;
+    pAction->uncachePackage.pPackage = pPackage;
 
-        hr = PlanExecuteCheckpoint(pPlan);
-        ExitOnFailure(hr, "Failed to append execute checkpoint for cache rollback.");
-    }
+    hr = PlanExecuteCheckpoint(pPlan);
+    ExitOnFailure(hr, "Failed to append execute checkpoint for cache rollback.");
 
 LExit:
     return hr;
@@ -1892,8 +1881,8 @@ static void ResetPlannedPackageState(
     // Reset package state that is a result of planning.
     pPackage->defaultRequested = BOOTSTRAPPER_REQUEST_STATE_NONE;
     pPackage->requested = BOOTSTRAPPER_REQUEST_STATE_NONE;
-    pPackage->fAcquire = FALSE;
-    pPackage->fUncache = FALSE;
+    pPackage->fPlannedCache = FALSE;
+    pPackage->fPlannedUncache = FALSE;
     pPackage->execute = BOOTSTRAPPER_ACTION_STATE_NONE;
     pPackage->rollback = BOOTSTRAPPER_ACTION_STATE_NONE;
     pPackage->providerExecute = BURN_DEPENDENCY_ACTION_NONE;
@@ -2187,10 +2176,7 @@ static HRESULT AddCachePackageHelper(
 
     ++pPlan->cOverallProgressTicksTotal;
 
-    // If the package was not already fully cached then note that we planned the cache here. Otherwise, we only
-    // did cache operations to verify the cache is valid so we did not plan the acquisition of the package.
-    pPackage->fAcquire = (BURN_CACHE_STATE_COMPLETE != pPackage->cache);
-
+    pPackage->fPlannedCache = TRUE;
     if (pPackage->fCanAffectRegistration)
     {
         pPackage->expectedCacheRegistrationState = BURN_PACKAGE_REGISTRATION_STATE_PRESENT;

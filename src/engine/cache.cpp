@@ -1712,7 +1712,7 @@ static HRESULT RemoveBundleOrPackage(
         }
     }
 
-    if (FAILED(hr))
+    if (E_PATHNOTFOUND != hr && FAILED(hr))
     {
         LogId(REPORT_STANDARD, fBundle ? MSG_UNABLE_UNCACHE_BUNDLE : MSG_UNABLE_UNCACHE_PACKAGE, wzBundleOrPackageId, sczDirectory, hr);
         hr = S_OK;
