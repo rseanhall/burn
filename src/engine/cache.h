@@ -52,12 +52,14 @@ HRESULT CacheGetResumePath(
     __in_z LPCWSTR wzPayloadWorkingPath,
     __deref_out_z LPWSTR* psczResumePath
     );
-HRESULT CacheFindLocalSource(
+HRESULT CacheGetLocalSourcePaths(
+    __in_z LPCWSTR wzRelativePath,
     __in_z LPCWSTR wzSourcePath,
     __in_z LPCWSTR wzDestinationPath,
+    __in_z_opt LPCWSTR wzLayoutDirectory,
     __in BURN_VARIABLES* pVariables,
-    __out BOOL* pfFound,
-    __out_z LPWSTR* psczSourceFullPath
+    __inout LPWSTR* rgSearchPaths,
+    __out DWORD* pcSearchPaths
     );
 HRESULT CacheSetLastUsedSource(
     __in BURN_VARIABLES* pVariables,
