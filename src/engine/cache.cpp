@@ -390,6 +390,7 @@ LExit:
 
 extern "C" HRESULT CacheFindLocalSource(
     __in_z LPCWSTR wzSourcePath,
+    __in_z LPCWSTR wzDestinationPath,
     __in BURN_VARIABLES* pVariables,
     __out BOOL* pfFound,
     __out_z LPWSTR* psczSourceFullPath
@@ -402,7 +403,7 @@ extern "C" HRESULT CacheFindLocalSource(
     LPWSTR sczLastSourceFolder = NULL;
     LPWSTR sczLayoutPath = NULL;
     LPWSTR sczLayoutFolder = NULL;
-    LPCWSTR rgwzSearchPaths[3] = { };
+    LPCWSTR rgwzSearchPaths[4] = { };
     DWORD cSearchPaths = 0;
 
     // If the source path provided is a full path, obviously that is where we should be looking.
@@ -413,8 +414,12 @@ extern "C" HRESULT CacheFindLocalSource(
     }
     else
     {
+        // Use the destination path first.
+        rgwzSearchPaths[0] = wzDestinationPath;
+        cSearchPaths = 1;
+
         // If we're not running from cache or we couldn't get the last source, use
-        // the source path location first. In the case where we are in the bundle's
+        // the source path location. In the case where we are in the bundle's
         // package cache and couldn't find a last used source we unfortunately will
         // be picking the package cache path which isn't likely to have what we are
         // looking for.
@@ -427,8 +432,8 @@ extern "C" HRESULT CacheFindLocalSource(
             hr = PathConcat(sczSourceProcessFolder, wzSourcePath, &sczCurrentPath);
             ExitOnFailure(hr, "Failed to combine last source with source.");
 
-            rgwzSearchPaths[0] = sczCurrentPath;
-            cSearchPaths = 1;
+            rgwzSearchPaths[cSearchPaths] = sczCurrentPath;
+            ++cSearchPaths;
         }
 
         // If we have a last used source and it does not duplicate the existing search path,
@@ -438,7 +443,7 @@ extern "C" HRESULT CacheFindLocalSource(
             hr = PathConcat(sczLastSourceFolder, wzSourcePath, &sczLastSourcePath);
             ExitOnFailure(hr, "Failed to combine last source with source.");
 
-            if (0 == cSearchPaths || CSTR_EQUAL != ::CompareStringW(LOCALE_NEUTRAL, NORM_IGNORECASE, rgwzSearchPaths[0], -1, sczLastSourcePath, -1))
+            if (1 == cSearchPaths || CSTR_EQUAL != ::CompareStringW(LOCALE_NEUTRAL, NORM_IGNORECASE, rgwzSearchPaths[1], -1, sczLastSourcePath, -1))
             {
                 rgwzSearchPaths[cSearchPaths] = sczLastSourcePath;
                 ++cSearchPaths;
