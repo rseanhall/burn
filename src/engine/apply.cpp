@@ -108,7 +108,8 @@ static HRESULT AcquireContainerOrPayload(
     __in BURN_CACHE_CONTEXT* pContext,
     __in_opt BURN_CONTAINER* pContainer,
     __in_opt BURN_PACKAGE* pPackage,
-    __in_opt BURN_PAYLOAD* pPayload
+    __in_opt BURN_PAYLOAD* pPayload,
+    __in_z LPWSTR* psczSourcePath
     );
 static HRESULT LayoutOrCacheContainerOrPayload(
     __in BURN_CACHE_CONTEXT* pContext,
@@ -819,10 +820,11 @@ static HRESULT ApplyExtractContainer(
     )
 {
     HRESULT hr = S_OK;
+    LPWSTR sczSourcePath = NULL;
 
     if (!pContainer->fActuallyAttached)
     {
-        hr = AcquireContainerOrPayload(pContext, pContainer, NULL, NULL);
+        hr = AcquireContainerOrPayload(pContext, pContainer, NULL, NULL, &sczSourcePath);
         LogExitOnFailure(hr, MSG_FAILED_ACQUIRE_CONTAINER, "Failed to acquire container: %ls to working path: %ls", pContainer->sczId, pContainer->sczUnverifiedPath);
     }
 
@@ -831,9 +833,17 @@ static HRESULT ApplyExtractContainer(
     hr = ExtractContainer(pContext, pContainer, rgPayloads, cPayloads);
     LogExitOnFailure(hr, MSG_FAILED_EXTRACT_CONTAINER, "Failed to extract payloads from container: %ls to working path: %ls", pContainer->sczId, pContainer->sczUnverifiedPath);
 
+    if (sczSourcePath)
+    {
+        // We successfully copied from a source location, set that as the last used source.
+        CacheSetLastUsedSource(pContext->pVariables, sczSourcePath, pContainer->sczFilePath);
+    }
+
     pContext->qwSuccessfulCacheProgress += pContainer->qwFileSize;
 
 LExit:
+    ReleaseStr(sczSourcePath);
+
     return hr;
 }
 
@@ -869,6 +879,7 @@ static HRESULT ApplyLayoutContainer(
     HRESULT hr = S_OK;
     DWORD cTryAgainAttempts = 0;
     BOOL fRetry = FALSE;
+    LPWSTR sczSourcePath = NULL;
 
     Assert(!pContainer->fAttached);
 
@@ -876,7 +887,7 @@ static HRESULT ApplyLayoutContainer(
     {
         fRetry = FALSE;
 
-        hr = AcquireContainerOrPayload(pContext, pContainer, NULL, NULL);
+        hr = AcquireContainerOrPayload(pContext, pContainer, NULL, NULL, &sczSourcePath);
         LogExitOnFailure(hr, MSG_FAILED_ACQUIRE_CONTAINER, "Failed to acquire container: %ls to working path: %ls", pContainer->sczId, pContainer->sczUnverifiedPath);
 
         pContext->qwSuccessfulCacheProgress += pContainer->qwFileSize;
@@ -884,6 +895,12 @@ static HRESULT ApplyLayoutContainer(
         hr = LayoutOrCacheContainerOrPayload(pContext, pContainer, NULL, NULL, TRUE, cTryAgainAttempts, &fRetry);
         if (SUCCEEDED(hr))
         {
+            if (sczSourcePath)
+            {
+                // We successfully copied from a source location, set that as the last used source.
+                CacheSetLastUsedSource(pContext->pVariables, sczSourcePath, pContainer->sczFilePath);
+            }
+
             pContext->qwSuccessfulCacheProgress += pContainer->qwFileSize;
             break;
         }
@@ -903,6 +920,8 @@ static HRESULT ApplyLayoutContainer(
     }
 
 LExit:
+    ReleaseStr(sczSourcePath);
+
     return hr;
 }
 
@@ -915,6 +934,7 @@ static HRESULT ApplyProcessPayload(
     HRESULT hr = S_OK;
     DWORD cTryAgainAttempts = 0;
     BOOL fRetry = FALSE;
+    LPWSTR sczSourcePath = NULL;
 
     Assert(pContext->pPayloads && pPackage || pContext->wzLayoutDirectory);
 
@@ -935,7 +955,7 @@ static HRESULT ApplyProcessPayload(
     {
         fRetry = FALSE;
 
-        hr = AcquireContainerOrPayload(pContext, NULL, pPackage, pPayload);
+        hr = AcquireContainerOrPayload(pContext, NULL, pPackage, pPayload, &sczSourcePath);
         LogExitOnFailure(hr, MSG_FAILED_ACQUIRE_PAYLOAD, "Failed to acquire payload: %ls to working path: %ls", pPayload->sczKey, pPayload->sczUnverifiedPath);
 
         pContext->qwSuccessfulCacheProgress += pPayload->qwFileSize;
@@ -944,6 +964,12 @@ static HRESULT ApplyProcessPayload(
         hr = LayoutOrCacheContainerOrPayload(pContext, NULL, pPackage, pPayload, FALSE, cTryAgainAttempts, &fRetry);
         if (SUCCEEDED(hr))
         {
+            if (sczSourcePath)
+            {
+                // We successfully copied from a source location, set that as the last used source.
+                CacheSetLastUsedSource(pContext->pVariables, sczSourcePath, pPayload->sczFilePath);
+            }
+
             pContext->qwSuccessfulCacheProgress += pPayload->qwFileSize;
             break;
         }
@@ -963,6 +989,8 @@ static HRESULT ApplyProcessPayload(
     }
 
 LExit:
+    ReleaseStr(sczSourcePath);
+
     return hr;
 }
 
@@ -1135,7 +1163,8 @@ static HRESULT AcquireContainerOrPayload(
     __in BURN_CACHE_CONTEXT* pContext,
     __in_opt BURN_CONTAINER* pContainer,
     __in_opt BURN_PACKAGE* pPackage,
-    __in_opt BURN_PAYLOAD* pPayload
+    __in_opt BURN_PAYLOAD* pPayload,
+    __in_z LPWSTR* psczSourcePath
     )
 {
     AssertSz(pContainer || pPayload, "Must provide a container or a payload.");
@@ -1243,11 +1272,13 @@ static HRESULT AcquireContainerOrPayload(
                 hr = CopyPayload(&progress, rgSearchPaths[dwChosenSearchPath], wzDestinationPath);
                 // Error handling happens after sending complete message to BA.
 
-                // TODO: wait for verification?
-                // We successfully copied from a source location, set that as the last used source.
                 if (SUCCEEDED(hr))
                 {
-                    CacheSetLastUsedSource(pContext->pVariables, rgSearchPaths[dwChosenSearchPath], wzRelativePath);
+                    // Best effort to remember the source path.
+                    if (FAILED(StrAllocString(psczSourcePath, rgSearchPaths[dwChosenSearchPath], 0)))
+                    {
+                        ReleaseNullStr(*psczSourcePath);
+                    }
                 }
             }
 
