@@ -119,9 +119,13 @@ HRESULT CacheLayoutPayload(
 HRESULT CacheCompletePayload(
     __in BOOL fPerMachine,
     __in BURN_PAYLOAD* pPayload,
-    __in_z_opt LPCWSTR wzCacheId,
+    __in_z LPCWSTR wzCacheId,
     __in_z LPCWSTR wzUnverifiedPayloadPath,
     __in BOOL fMove
+    );
+HRESULT CacheVerifyPayload(
+    __in BURN_PAYLOAD* pPayload,
+    __in_z LPCWSTR wzCachedDirectory
     );
 HRESULT CacheRemoveWorkingFolder(
     __in_z_opt LPCWSTR wzBundleId

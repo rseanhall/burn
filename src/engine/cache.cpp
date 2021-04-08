@@ -836,7 +836,7 @@ LExit:
 extern "C" HRESULT CacheCompletePayload(
     __in BOOL fPerMachine,
     __in BURN_PAYLOAD* pPayload,
-    __in_z_opt LPCWSTR wzCacheId,
+    __in_z LPCWSTR wzCacheId,
     __in_z LPCWSTR wzWorkingPayloadPath,
     __in BOOL fMove
     )
@@ -905,6 +905,25 @@ LExit:
     ReleaseStr(sczUnverifiedPayloadPath);
     ReleaseStr(sczCachedPath);
     ReleaseStr(sczCachedDirectory);
+
+    return hr;
+}
+
+extern "C" HRESULT CacheVerifyPayload(
+    __in BURN_PAYLOAD* pPayload,
+    __in_z LPCWSTR wzCachedDirectory
+    )
+{
+    HRESULT hr = S_OK;
+    LPWSTR sczCachedPath = NULL;
+
+    hr = PathConcat(wzCachedDirectory, pPayload->sczFilePath, &sczCachedPath);
+    ExitOnFailure(hr, "Failed to concat complete cached path.");
+
+    hr = VerifyFileAgainstPayload(pPayload, sczCachedPath);
+
+LExit:
+    ReleaseStr(sczCachedPath);
 
     return hr;
 }

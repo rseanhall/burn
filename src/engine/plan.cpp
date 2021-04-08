@@ -1830,6 +1830,8 @@ static void ResetPlannedPackageState(
     pPackage->expectedCacheRegistrationState = BURN_PACKAGE_REGISTRATION_STATE_UNKNOWN;
     pPackage->expectedInstallRegistrationState = BURN_PACKAGE_REGISTRATION_STATE_UNKNOWN;
 
+    ReleaseNullStr(pPackage->sczCacheFolder);
+
     if (BURN_PACKAGE_TYPE_MSI == pPackage->type)
     {
         for (DWORD i = 0; i < pPackage->Msi.cFeatures; ++i)

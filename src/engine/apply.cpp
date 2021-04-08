@@ -763,6 +763,12 @@ static HRESULT ApplyCachePackage(
     HRESULT hr = S_OK;
     BOOTSTRAPPER_CACHEPACKAGECOMPLETE_ACTION cachePackageCompleteAction = BOOTSTRAPPER_CACHEPACKAGECOMPLETE_ACTION_NONE;
 
+    if (!pPackage->sczCacheFolder && !pContext->wzLayoutDirectory)
+    {
+        hr = CacheGetCompletedPath(pPackage->fPerMachine, pPackage->sczCacheId, &pPackage->sczCacheFolder);
+        ExitOnFailure(hr, "Failed to get cached path for package with cache id: %ls", pPackage->sczCacheId);
+    }
+
     for (;;)
     {
         hr = UserExperienceOnCachePackageBegin(pContext->pUX, pPackage->sczId, pPackage->payloads.cPayloads, pPackage->payloads.qwTotalSize);
@@ -911,7 +917,20 @@ static HRESULT ApplyProcessPayload(
     DWORD cTryAgainAttempts = 0;
     BOOL fRetry = FALSE;
 
-    Assert(pContext->pPayloads || pContext->wzLayoutDirectory);
+    Assert(pContext->pPayloads && pPackage || pContext->wzLayoutDirectory);
+
+    if (pPayload->pContainer && pContext->wzLayoutDirectory)
+    {
+        ExitFunction();
+    }
+
+    hr = CacheVerifyPayload(pPayload, pContext->wzLayoutDirectory ? pContext->wzLayoutDirectory : pPackage->sczCacheFolder);
+    if (SUCCEEDED(hr))
+    {
+        // TODO: send Acquire and Verify messages to BA?
+        pContext->qwSuccessfulCacheProgress += pPayload->qwFileSize * 2;
+        ExitFunction();
+    }
 
     for (;;)
     {
@@ -919,12 +938,7 @@ static HRESULT ApplyProcessPayload(
 
         if (pPayload->pContainer)
         {
-            if (pContext->wzLayoutDirectory)
-            {
-                ExitFunction();
-            }
-
-            // TODO: only extract container if payload isn't already cached and isn't already extracted
+            // TODO: only extract container if payload isn't already extracted
             hr = ApplyExtractContainer(pContext, pPayload->pContainer);
             ExitOnFailure(hr, "Failed to extract container for payload: %ls", pPayload->sczKey);
         }
