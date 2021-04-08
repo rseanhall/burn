@@ -26,6 +26,7 @@ typedef struct _BURN_CACHE_CONTEXT
     LPWSTR* rgSearchPaths;
     DWORD cSearchPaths;
     DWORD cSearchPathsMax;
+    LPWSTR sczLastUsedFolderCandidate;
 } BURN_CACHE_CONTEXT;
 
 typedef struct _BURN_CACHE_ACQUIRE_PROGRESS_CONTEXT
@@ -558,6 +559,7 @@ LExit:
         ReleaseNullStr(cacheContext.rgSearchPaths[i]);
     }
     ReleaseMem(cacheContext.rgSearchPaths);
+    ReleaseStr(cacheContext.sczLastUsedFolderCandidate);
 
     UserExperienceOnCacheComplete(pUX, hr);
     return hr;
@@ -835,9 +837,17 @@ static HRESULT ApplyExtractContainer(
     hr = ExtractContainer(pContext, pContainer);
     LogExitOnFailure(hr, MSG_FAILED_EXTRACT_CONTAINER, "Failed to extract payloads from container: %ls to working path: %ls", pContainer->sczId, pContainer->sczUnverifiedPath);
 
+    if (pContext->sczLastUsedFolderCandidate)
+    {
+        // We successfully copied from a source location, set that as the last used source.
+        CacheSetLastUsedSource(pContext->pVariables, pContext->sczLastUsedFolderCandidate, pContainer->sczFilePath);
+    }
+
     pContext->qwSuccessfulCacheProgress += pContainer->qwFileSize;
 
 LExit:
+    ReleaseNullStr(pContext->sczLastUsedFolderCandidate);
+
     return hr;
 }
 
@@ -888,6 +898,12 @@ static HRESULT ApplyLayoutContainer(
         hr = LayoutOrCacheContainerOrPayload(pContext, pContainer, NULL, NULL, TRUE, cTryAgainAttempts, &fRetry);
         if (SUCCEEDED(hr))
         {
+            if (pContext->sczLastUsedFolderCandidate)
+            {
+                // We successfully copied from a source location, set that as the last used source.
+                CacheSetLastUsedSource(pContext->pVariables, pContext->sczLastUsedFolderCandidate, pContainer->sczFilePath);
+            }
+
             pContext->qwSuccessfulCacheProgress += pContainer->qwFileSize;
             break;
         }
@@ -902,11 +918,14 @@ static HRESULT ApplyLayoutContainer(
 
             ++cTryAgainAttempts;
             pContext->qwSuccessfulCacheProgress -= pContainer->qwFileSize;
+            ReleaseNullStr(pContext->sczLastUsedFolderCandidate);
             LogErrorId(hr, MSG_APPLY_RETRYING_PAYLOAD, pContainer->sczId, NULL, NULL);
         }
     }
 
 LExit:
+    ReleaseNullStr(pContext->sczLastUsedFolderCandidate);
+
     return hr;
 }
 
@@ -948,6 +967,12 @@ static HRESULT ApplyProcessPayload(
         hr = LayoutOrCacheContainerOrPayload(pContext, NULL, pPackage, pPayload, FALSE, cTryAgainAttempts, &fRetry);
         if (SUCCEEDED(hr))
         {
+            if (pContext->sczLastUsedFolderCandidate)
+            {
+                // We successfully copied from a source location, set that as the last used source.
+                CacheSetLastUsedSource(pContext->pVariables, pContext->sczLastUsedFolderCandidate, pPayload->sczFilePath);
+            }
+
             pContext->qwSuccessfulCacheProgress += pPayload->qwFileSize;
             break;
         }
@@ -962,11 +987,14 @@ static HRESULT ApplyProcessPayload(
 
             ++cTryAgainAttempts;
             pContext->qwSuccessfulCacheProgress -= pPayload->qwFileSize;
+            ReleaseNullStr(pContext->sczLastUsedFolderCandidate);
             LogErrorId(hr, MSG_APPLY_RETRYING_PAYLOAD, pPayload->sczKey, NULL, NULL);
         }
     }
 
 LExit:
+    ReleaseNullStr(pContext->sczLastUsedFolderCandidate);
+
     return hr;
 }
 
@@ -1232,12 +1260,9 @@ static HRESULT AcquireContainerOrPayload(
                 hr = CopyPayload(&progress, pContext->rgSearchPaths[dwChosenSearchPath], wzDestinationPath);
                 // Error handling happens after sending complete message to BA.
 
-                // TODO: wait for verification?
-                // We successfully copied from a source location, set that as the last used source.
-                if (SUCCEEDED(hr))
-                {
-                    CacheSetLastUsedSource(pContext->pVariables, pContext->rgSearchPaths[dwChosenSearchPath], wzRelativePath);
-                }
+                // Store the source path so it can be used as the LastUsedFolder if it passes verification.
+                pContext->sczLastUsedFolderCandidate = pContext->rgSearchPaths[dwChosenSearchPath];
+                pContext->rgSearchPaths[dwChosenSearchPath] = NULL;
             }
 
             fBeginCalled = FALSE;
