@@ -2096,12 +2096,17 @@ static HRESULT AddCachePackageHelper(
     pCacheAction->type = BURN_CACHE_ACTION_TYPE_CHECKPOINT;
     pCacheAction->checkpoint.dwId = dwCheckpoint;
 
-    // Only plan the cache rollback if the package is also going to be uninstalled;
-    // otherwise, future operations like repair will not be able to locate the cached package.
-    BOOL fPlanCacheRollback = (BOOTSTRAPPER_ACTION_STATE_UNINSTALL == pPackage->rollback);
-
-    if (fPlanCacheRollback)
+    // Only plan the cache rollback if the package isn't supposed to be kept in the cache or
+    // it could cause the bundle to stay registered when it shouldn't.
+    if (BOOTSTRAPPER_CACHE_TYPE_KEEP > pPackage->cacheType || BOOTSTRAPPER_ACTION_CACHE != pPlan->action)
     {
+        // Create a package cache rollback action *before* the checkpoint.
+        hr = AppendRollbackCacheAction(pPlan, &pCacheAction);
+        ExitOnFailure(hr, "Failed to append rollback cache action.");
+
+        pCacheAction->type = BURN_CACHE_ACTION_TYPE_ROLLBACK_PACKAGE;
+        pCacheAction->rollbackPackage.pPackage = pPackage;
+
         hr = AppendRollbackCacheAction(pPlan, &pCacheAction);
         ExitOnFailure(hr, "Failed to append rollback cache action.");
 

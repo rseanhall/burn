@@ -467,6 +467,7 @@ extern "C" HRESULT CorePlan(
     pEngineState->plan.wzBundleId = pEngineState->registration.sczId;
     pEngineState->plan.wzBundleProviderKey = pEngineState->registration.sczId;
     pEngineState->plan.fDisableRollback = pEngineState->fDisableRollback;
+    pEngineState->plan.fBundleAlreadyRegistered = pEngineState->registration.fInstalled;
 
     hr = PlanSetVariables(action, &pEngineState->variables);
     ExitOnFailure(hr, "Failed to update action.");

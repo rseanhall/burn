@@ -240,6 +240,7 @@ typedef struct _BURN_PLAN
     BOOL fAffectedMachineState;
     BOOL fIgnoreAllDependents;
     LPWSTR sczLayoutDirectory;
+    BOOL fBundleAlreadyRegistered;
 
     DWORD64 qwCacheSizeTotal;
 

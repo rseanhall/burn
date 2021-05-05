@@ -67,7 +67,12 @@ namespace Bootstrapper
 
             fRollback = TRUE;
             dwIndex = 0;
+            ValidateCacheRollbackPackage(pPlan, fRollback, dwIndex++, L"PackageA");
             ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 1);
+            ValidateCacheRollbackPackage(pPlan, fRollback, dwIndex++, L"PackageB");
+            ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 9);
+            ValidateCacheRollbackPackage(pPlan, fRollback, dwIndex++, L"PackageC");
+            ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 14);
             Assert::Equal(dwIndex, pPlan->cRollbackCacheActions);
 
             Assert::Equal(107082ull, pPlan->qwEstimatedSize);
@@ -304,6 +309,7 @@ namespace Bootstrapper
 
             fRollback = TRUE;
             dwIndex = 0;
+            ValidateCacheRollbackPackage(pPlan, fRollback, dwIndex++, L"PackageA");
             ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 1);
             Assert::Equal(dwIndex, pPlan->cRollbackCacheActions);
 
@@ -454,6 +460,7 @@ namespace Bootstrapper
 
             fRollback = TRUE;
             dwIndex = 0;
+            ValidateCacheRollbackPackage(pPlan, fRollback, dwIndex++, L"PackageA");
             ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 1);
             Assert::Equal(dwIndex, pPlan->cRollbackCacheActions);
 
@@ -738,6 +745,11 @@ namespace Bootstrapper
 
             fRollback = TRUE;
             dwIndex = 0;
+            ValidateCacheRollbackPackage(pPlan, fRollback, dwIndex++, L"NetFx48Web");
+            ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 1);
+            ValidateCacheRollbackPackage(pPlan, fRollback, dwIndex++, L"PatchA");
+            ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 3);
+            ValidateCacheRollbackPackage(pPlan, fRollback, dwIndex++, L"PackageA");
             ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 4);
             Assert::Equal(dwIndex, pPlan->cRollbackCacheActions);
 
