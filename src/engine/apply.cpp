@@ -546,7 +546,7 @@ extern "C" HRESULT ApplyCache(
 
             if (!cacheContext.wzLayoutDirectory)
             {
-                if (!pPackage->fPerMachine)
+                if (!pPackage->fPerMachine || INVALID_HANDLE_VALUE == cacheContext.hPipe)
                 {
                     hr = CachePreparePackage(pPackage);
 
@@ -554,8 +554,6 @@ extern "C" HRESULT ApplyCache(
                 }
                 else
                 {
-                    Assert(INVALID_HANDLE_VALUE != cacheContext.hPipe);
-
                     hr = ElevationCachePreparePackage(hPipe, pPackage);
                 }
                 LogExitOnFailure(hr, MSG_CACHE_PREPARE_PACKAGE_FAILED, "Cache prepare package failed: %ls", pPackage->sczId, NULL, NULL);
