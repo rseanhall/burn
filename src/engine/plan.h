@@ -378,8 +378,7 @@ HRESULT PlanExecutePackage(
     __in BURN_PLAN* pPlan,
     __in BURN_PACKAGE* pPackage,
     __in BURN_LOGGING* pLog,
-    __in BURN_VARIABLES* pVariables,
-    __inout HANDLE* phSyncpointEvent
+    __in BURN_VARIABLES* pVariables
     );
 HRESULT PlanDefaultRelatedBundleRequestState(
     __in BOOTSTRAPPER_RELATION_TYPE commandRelationType,
