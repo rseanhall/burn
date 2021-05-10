@@ -2600,7 +2600,7 @@ static void ExecuteActionLog(
         break;
 
     case BURN_EXECUTE_ACTION_TYPE_WAIT_CACHE_PACKAGE:
-        LogStringLine(PlanDumpLevel, "%ls action[%u]: WAIT_CACHE_PACKAGE id: %ls,  event handle: 0x%p", wzBase, iAction, pAction->waitCachePackage.pPackage->sczId, pAction->waitCachePackage.pPackage->hCacheEvent);
+        LogStringLine(PlanDumpLevel, "%ls action[%u]: WAIT_CACHE_PACKAGE id: %ls, event handle: 0x%p", wzBase, iAction, pAction->waitCachePackage.pPackage->sczId, pAction->waitCachePackage.pPackage->hCacheEvent);
         break;
 
     case BURN_EXECUTE_ACTION_TYPE_UNCACHE_PACKAGE:
