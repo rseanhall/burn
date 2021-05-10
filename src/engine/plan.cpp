@@ -76,18 +76,15 @@ static HRESULT AddRegistrationAction(
     );
 static HRESULT AddCachePackage(
     __in BURN_PLAN* pPlan,
-    __in BURN_PACKAGE* pPackage,
-    __in BOOL fToExecutePackage
+    __in BURN_PACKAGE* pPackage
     );
 static HRESULT AddCachePackageHelper(
     __in BURN_PLAN* pPlan,
-    __in BURN_PACKAGE* pPackage,
-    __in BOOL fToExecutePackage
+    __in BURN_PACKAGE* pPackage
     );
 static HRESULT AddCacheSlipstreamMsps(
     __in BURN_PLAN* pPlan,
-    __in BURN_PACKAGE* pPackage,
-    __in BOOL fToExecutePackage
+    __in BURN_PACKAGE* pPackage
     );
 static DWORD GetNextCheckpointId(
     __in BURN_PLAN* pPlan
@@ -926,7 +923,7 @@ static HRESULT ProcessPackage(
         {
             if (ForceCache(pPlan, pPackage))
             {
-                hr = AddCachePackage(pPlan, pPackage, FALSE);
+                hr = AddCachePackage(pPlan, pPackage);
                 ExitOnFailure(hr, "Failed to plan cache package.");
 
                 if (pPackage->fPerMachine)
@@ -1080,7 +1077,7 @@ extern "C" HRESULT PlanExecutePackage(
 
     if (fRequestedCache || NeedsCache(pPackage, TRUE))
     {
-        hr = AddCachePackage(pPlan, pPackage, TRUE);
+        hr = AddCachePackage(pPlan, pPackage);
         ExitOnFailure(hr, "Failed to plan cache package.");
     }
     else if (!pPackage->fCached && NeedsCache(pPackage, FALSE))
@@ -2041,8 +2038,7 @@ LExit:
 
 static HRESULT AddCachePackage(
     __in BURN_PLAN* pPlan,
-    __in BURN_PACKAGE* pPackage,
-    __in BOOL fToExecutePackage
+    __in BURN_PACKAGE* pPackage
     )
 {
     HRESULT hr = S_OK;
@@ -2050,11 +2046,11 @@ static HRESULT AddCachePackage(
     // If this is an MSI package with slipstream MSPs, ensure the MSPs are cached first.
     if (BURN_PACKAGE_TYPE_MSI == pPackage->type && 0 < pPackage->Msi.cSlipstreamMspPackages)
     {
-        hr = AddCacheSlipstreamMsps(pPlan, pPackage, fToExecutePackage);
+        hr = AddCacheSlipstreamMsps(pPlan, pPackage);
         ExitOnFailure(hr, "Failed to plan slipstream patches for package.");
     }
 
-    hr = AddCachePackageHelper(pPlan, pPackage, fToExecutePackage);
+    hr = AddCachePackageHelper(pPlan, pPackage);
     ExitOnFailure(hr, "Failed to plan cache package.");
 
 LExit:
@@ -2063,8 +2059,7 @@ LExit:
 
 static HRESULT AddCachePackageHelper(
     __in BURN_PLAN* pPlan,
-    __in BURN_PACKAGE* pPackage,
-    __in BOOL fToExecutePackage
+    __in BURN_PACKAGE* pPackage
     )
 {
     AssertSz(pPackage->sczCacheId && *pPackage->sczCacheId, "AddCachePackageHelper() expects the package to have a cache id.");
@@ -2078,7 +2073,7 @@ static HRESULT AddCachePackageHelper(
         ExitFunction();
     }
 
-    if (pPackage->hCacheEvent)
+    if (pPackage->hCacheEvent) // Only cache the package once.
     {
         ExitFunction();
     }
@@ -2123,11 +2118,8 @@ static HRESULT AddCachePackageHelper(
 
     pPackage->hCacheEvent = pCacheAction->syncpoint.hEvent;
 
-    if (fToExecutePackage)
-    {
-        hr = PlanExecuteCacheSyncAndRollback(pPlan, pPackage);
-        ExitOnFailure(hr, "Failed to plan package cache syncpoint");
-    }
+    hr = PlanExecuteCacheSyncAndRollback(pPlan, pPackage);
+    ExitOnFailure(hr, "Failed to plan package cache syncpoint");
 
     pPackage->fPlannedCache = TRUE;
     if (pPackage->fCanAffectRegistration)
@@ -2141,8 +2133,7 @@ LExit:
 
 static HRESULT AddCacheSlipstreamMsps(
     __in BURN_PLAN* pPlan,
-    __in BURN_PACKAGE* pPackage,
-    __in BOOL fToExecutePackage
+    __in BURN_PACKAGE* pPackage
     )
 {
     HRESULT hr = S_OK;
@@ -2154,7 +2145,7 @@ static HRESULT AddCacheSlipstreamMsps(
         BURN_PACKAGE* pMspPackage = pPackage->Msi.rgSlipstreamMsps[i].pMspPackage;
         AssertSz(BURN_PACKAGE_TYPE_MSP == pMspPackage->type, "Only MSP packages can be slipstream patches.");
 
-        hr = AddCachePackageHelper(pPlan, pMspPackage, fToExecutePackage);
+        hr = AddCachePackageHelper(pPlan, pMspPackage);
         ExitOnFailure(hr, "Failed to plan slipstream MSP: %ls", pMspPackage->sczId);
     }
 
