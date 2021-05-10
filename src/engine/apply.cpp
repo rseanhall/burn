@@ -2142,7 +2142,7 @@ static void DoRollbackCache(
                         hr = CleanPackage(hPipe, pPackage);
                     }
                 }
-                else if (pPackage->fCanAffectRegistration && !pPlan->fBundleAlreadyRegistered)
+                else if (pPackage->fCanAffectRegistration)
                 {
                     // Don't let this already cached package cause the registration to be kept if the bundle failed and wasn't already registered.
                     pPackage->cacheRegistrationState = BURN_PACKAGE_REGISTRATION_STATE_IGNORED;
@@ -2367,7 +2367,7 @@ static HRESULT DoRollbackActions(
                     hr = CleanPackage(pEngineState->companionConnection.hPipe, pRollbackAction->uncachePackage.pPackage);
                     IgnoreRollbackError(hr, "Failed to uncache package for rollback.");
                 }
-                else if (pRollbackAction->uncachePackage.pPackage->fCanAffectRegistration && !pEngineState->plan.fBundleAlreadyRegistered)
+                else if (pRollbackAction->uncachePackage.pPackage->fCanAffectRegistration)
                 {
                     // Don't let this already cached package cause the registration to be kept if the bundle failed and wasn't already registered.
                     pRollbackAction->uncachePackage.pPackage->cacheRegistrationState = BURN_PACKAGE_REGISTRATION_STATE_IGNORED;

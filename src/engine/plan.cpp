@@ -1588,11 +1588,14 @@ extern "C" HRESULT PlanExecuteCacheSyncAndRollback(
     pAction->type = BURN_EXECUTE_ACTION_TYPE_WAIT_SYNCPOINT;
     pAction->syncpoint.hEvent = hCacheEvent;
 
-    hr = PlanAppendRollbackAction(pPlan, &pAction);
-    ExitOnFailure(hr, "Failed to append rollback action.");
+    if (!pPlan->fBundleAlreadyRegistered)
+    {
+        hr = PlanAppendRollbackAction(pPlan, &pAction);
+        ExitOnFailure(hr, "Failed to append rollback action.");
 
-    pAction->type = BURN_EXECUTE_ACTION_TYPE_UNCACHE_PACKAGE;
-    pAction->uncachePackage.pPackage = pPackage;
+        pAction->type = BURN_EXECUTE_ACTION_TYPE_UNCACHE_PACKAGE;
+        pAction->uncachePackage.pPackage = pPackage;
+    }
 
     hr = PlanExecuteCheckpoint(pPlan);
     ExitOnFailure(hr, "Failed to append execute checkpoint for cache rollback.");
@@ -2092,9 +2095,7 @@ static HRESULT AddCachePackageHelper(
     pCacheAction->type = BURN_CACHE_ACTION_TYPE_CHECKPOINT;
     pCacheAction->checkpoint.dwId = dwCheckpoint;
 
-    // Only plan the cache rollback if the package isn't supposed to be kept in the cache or
-    // it could cause the bundle to stay registered when it shouldn't.
-    if (BOOTSTRAPPER_CACHE_TYPE_KEEP > pPackage->cacheType || BOOTSTRAPPER_ACTION_CACHE != pPlan->action)
+    if (!pPlan->fBundleAlreadyRegistered)
     {
         // Create a package cache rollback action *before* the checkpoint.
         hr = AppendRollbackCacheAction(pPlan, &pCacheAction);
