@@ -1575,18 +1575,11 @@ LExit:
 
 extern "C" HRESULT PlanExecuteCacheSyncAndRollback(
     __in BURN_PLAN* pPlan,
-    __in BURN_PACKAGE* pPackage,
-    __in HANDLE hCacheEvent
+    __in BURN_PACKAGE* pPackage
     )
 {
     HRESULT hr = S_OK;
     BURN_EXECUTE_ACTION* pAction = NULL;
-
-    hr = PlanAppendExecuteAction(pPlan, &pAction);
-    ExitOnFailure(hr, "Failed to append wait action for caching.");
-
-    pAction->type = BURN_EXECUTE_ACTION_TYPE_WAIT_SYNCPOINT;
-    pAction->syncpoint.hEvent = hCacheEvent;
 
     if (!pPlan->fBundleAlreadyRegistered)
     {
@@ -1599,6 +1592,12 @@ extern "C" HRESULT PlanExecuteCacheSyncAndRollback(
 
     hr = PlanExecuteCheckpoint(pPlan);
     ExitOnFailure(hr, "Failed to append execute checkpoint for cache rollback.");
+
+    hr = PlanAppendExecuteAction(pPlan, &pAction);
+    ExitOnFailure(hr, "Failed to append wait action for caching.");
+
+    pAction->type = BURN_EXECUTE_ACTION_TYPE_WAIT_CACHE_PACKAGE;
+    pAction->waitCachePackage.pPackage = pPackage;
 
 LExit:
     return hr;
@@ -2126,7 +2125,7 @@ static HRESULT AddCachePackageHelper(
 
     if (fToExecutePackage)
     {
-        hr = PlanExecuteCacheSyncAndRollback(pPlan, pPackage, pPackage->hCacheEvent);
+        hr = PlanExecuteCacheSyncAndRollback(pPlan, pPackage);
         ExitOnFailure(hr, "Failed to plan package cache syncpoint");
     }
 
@@ -2609,8 +2608,8 @@ static void ExecuteActionLog(
         LogStringLine(PlanDumpLevel, "%ls action[%u]: ROLLBACK_BOUNDARY id: %ls, vital: %ls", wzBase, iAction, pAction->rollbackBoundary.pRollbackBoundary->sczId, pAction->rollbackBoundary.pRollbackBoundary->fVital ? L"yes" : L"no");
         break;
 
-    case BURN_EXECUTE_ACTION_TYPE_WAIT_SYNCPOINT:
-        LogStringLine(PlanDumpLevel, "%ls action[%u]: WAIT_SYNCPOINT event handle: 0x%p", wzBase, iAction, pAction->syncpoint.hEvent);
+    case BURN_EXECUTE_ACTION_TYPE_WAIT_CACHE_PACKAGE:
+        LogStringLine(PlanDumpLevel, "%ls action[%u]: WAIT_CACHE_PACKAGE id: %ls,  event handle: 0x%p", wzBase, iAction, pAction->waitCachePackage.pPackage->sczId, pAction->waitCachePackage.pPackage->hCacheEvent);
         break;
 
     case BURN_EXECUTE_ACTION_TYPE_UNCACHE_PACKAGE:

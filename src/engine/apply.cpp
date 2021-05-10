@@ -2188,9 +2188,11 @@ static HRESULT DoExecuteAction(
             *ppCheckpoint = &pExecuteAction->checkpoint;
             break;
 
-        case BURN_EXECUTE_ACTION_TYPE_WAIT_SYNCPOINT:
+        case BURN_EXECUTE_ACTION_TYPE_WAIT_CACHE_PACKAGE:
+            pExecuteAction->waitCachePackage.pPackage->fReachedExecution = TRUE;
+
             // wait for cache sync-point
-            rghWait[0] = pExecuteAction->syncpoint.hEvent;
+            rghWait[0] = pExecuteAction->waitCachePackage.pPackage->hCacheEvent;
             rghWait[1] = pContext->pApplyContext->hCacheThread;
             switch (::WaitForMultipleObjects(rghWait[1] ? 2 : 1, rghWait, FALSE, INFINITE))
             {
@@ -2467,11 +2469,6 @@ LExit:
         hr = ExecutePackageComplete(&pEngineState->userExperience, &pEngineState->variables, pPackage, hr, hrExecute, fRollback, pRestart, pfRetry, pfSuspend);
     }
 
-    if (!fRollback)
-    {
-        pPackage->fReachedExecution = TRUE;
-    }
-
     return hr;
 }
 
@@ -2534,11 +2531,6 @@ LExit:
     if (fBeginCalled)
     {
         hr = ExecutePackageComplete(&pEngineState->userExperience, &pEngineState->variables, pPackage, hr, hrExecute, fRollback, pRestart, pfRetry, pfSuspend);
-    }
-
-    if (!fRollback)
-    {
-        pPackage->fReachedExecution = TRUE;
     }
 
     return hr;
@@ -2612,11 +2604,6 @@ LExit:
     if (fBeginCalled)
     {
         hr = ExecutePackageComplete(&pEngineState->userExperience, &pEngineState->variables, pPackage, hr, hrExecute, fRollback, pRestart, pfRetry, pfSuspend);
-    }
-
-    if (!fRollback)
-    {
-        pPackage->fReachedExecution = TRUE;
     }
 
     return hr;
@@ -2697,11 +2684,6 @@ LExit:
     if (fBeginCalled)
     {
         hr = ExecutePackageComplete(&pEngineState->userExperience, &pEngineState->variables, pPackage, hr, hrExecute, fRollback, pRestart, pfRetry, pfSuspend);
-    }
-
-    if (!fRollback)
-    {
-        pPackage->fReachedExecution = TRUE;
     }
 
     return hr;

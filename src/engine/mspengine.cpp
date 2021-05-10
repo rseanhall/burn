@@ -1143,14 +1143,15 @@ static HRESULT PlanTargetProduct(
     {
         if (!fRollback && pPackage->hCacheEvent)
         {
-            // Since a previouse MSP target action is being updated with the new MSP, 
+            // TODO: need to properly handle rolling back the caching of the package since this causes cache and execute plans to get out of sync.
+            // Since a previous MSP target action is being updated with the new MSP,
             // insert a wait syncpoint to before this action since we need to cache the current MSI before using it.
             BURN_EXECUTE_ACTION* pWaitSyncPointAction = NULL;
             hr = PlanInsertExecuteAction(dwInsertSequence, pPlan, &pWaitSyncPointAction);
             ExitOnFailure(hr, "Failed to insert execute action.");
 
-            pWaitSyncPointAction->type = BURN_EXECUTE_ACTION_TYPE_WAIT_SYNCPOINT;
-            pWaitSyncPointAction->syncpoint.hEvent = pPackage->hCacheEvent;
+            pWaitSyncPointAction->type = BURN_EXECUTE_ACTION_TYPE_WAIT_CACHE_PACKAGE;
+            pWaitSyncPointAction->waitCachePackage.pPackage = pPackage;
 
             // Since we inserted an action before the MSP target action that we will be updating, need to update the pointer.
             pAction = pPlan->rgExecuteActions + (dwInsertSequence + 1);
