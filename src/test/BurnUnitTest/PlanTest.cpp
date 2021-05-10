@@ -391,6 +391,8 @@ namespace Bootstrapper
 
             fRollback = TRUE;
             dwIndex = 0;
+            ValidateCacheRollbackPackage(pPlan, fRollback, dwIndex++, L"PackageA");
+            ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 1);
             Assert::Equal(dwIndex, pPlan->cRollbackCacheActions);
 
             Assert::Equal(33743ull, pPlan->qwEstimatedSize);
@@ -738,19 +740,13 @@ namespace Bootstrapper
             ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 3);
             ValidateCachePackage(pPlan, fRollback, dwIndex++, L"PatchA");
             ValidateCacheSignalSyncpoint(pPlan, fRollback, dwIndex++);
-            ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 4);
+            ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 5);
             ValidateCachePackage(pPlan, fRollback, dwIndex++, L"PackageA");
             ValidateCacheSignalSyncpoint(pPlan, fRollback, dwIndex++);
             Assert::Equal(dwIndex, pPlan->cCacheActions);
 
             fRollback = TRUE;
             dwIndex = 0;
-            ValidateCacheRollbackPackage(pPlan, fRollback, dwIndex++, L"NetFx48Web");
-            ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 1);
-            ValidateCacheRollbackPackage(pPlan, fRollback, dwIndex++, L"PatchA");
-            ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 3);
-            ValidateCacheRollbackPackage(pPlan, fRollback, dwIndex++, L"PackageA");
-            ValidateCacheCheckpoint(pPlan, fRollback, dwIndex++, 4);
             Assert::Equal(dwIndex, pPlan->cRollbackCacheActions);
 
             Assert::Equal(3055111ull, pPlan->qwEstimatedSize);
@@ -763,8 +759,11 @@ namespace Bootstrapper
             ValidateExecuteRollbackBoundary(pPlan, fRollback, dwIndex++, L"WixDefaultBoundary", TRUE, FALSE);
             ValidateExecuteWaitSyncpoint(pPlan, fRollback, dwIndex++, pPlan->rgCacheActions[2].syncpoint.hEvent);
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
+            ValidateExecuteWaitSyncpoint(pPlan, fRollback, dwIndex++, pPlan->rgCacheActions[5].syncpoint.hEvent);
+            dwExecuteCheckpointId += 1; // cache checkpoints
+            ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
             ValidateExecuteWaitSyncpoint(pPlan, fRollback, dwIndex++, pPlan->rgCacheActions[8].syncpoint.hEvent);
-            dwExecuteCheckpointId += 2; // cache checkpoints
+            dwExecuteCheckpointId += 1; // cache checkpoints
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
             ValidateExecutePackageProvider(pPlan, fRollback, dwIndex++, L"PackageA", BURN_DEPENDENCY_ACTION_REGISTER);
@@ -772,8 +771,6 @@ namespace Bootstrapper
             ValidateExecuteMsiPackage(pPlan, fRollback, dwIndex++, L"PackageA", BOOTSTRAPPER_ACTION_STATE_INSTALL, BURN_MSI_PROPERTY_INSTALL, INSTALLUILEVEL_NONE, FALSE, 0);
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
             ValidateExecutePackageDependency(pPlan, fRollback, dwIndex++, L"PackageA", L"{22D1DDBA-284D-40A7-BD14-95EA07906F21}", BURN_DEPENDENCY_ACTION_REGISTER);
-            ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
-            ValidateExecuteWaitSyncpoint(pPlan, fRollback, dwIndex++, pPlan->rgCacheActions[5].syncpoint.hEvent);
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
             ValidateExecutePackageProvider(pPlan, fRollback, dwIndex++, L"PatchA", BURN_DEPENDENCY_ACTION_REGISTER);
@@ -789,10 +786,10 @@ namespace Bootstrapper
             dwIndex = 0;
             dwExecuteCheckpointId = 2;
             ValidateExecuteRollbackBoundary(pPlan, fRollback, dwIndex++, L"WixDefaultBoundary", TRUE, FALSE);
-            ValidateExecuteUncachePackage(pPlan, fRollback, dwIndex++, L"NetFx48Web");
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
-            dwExecuteCheckpointId += 2; // cache checkpoints
-            ValidateExecuteUncachePackage(pPlan, fRollback, dwIndex++, L"PackageA");
+            dwExecuteCheckpointId += 1; // cache checkpoints
+            ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
+            dwExecuteCheckpointId += 1; // cache checkpoints
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
             ValidateExecutePackageProvider(pPlan, fRollback, dwIndex++, L"PackageA", BURN_DEPENDENCY_ACTION_UNREGISTER);
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
@@ -800,8 +797,6 @@ namespace Bootstrapper
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
             ValidateExecutePackageDependency(pPlan, fRollback, dwIndex++, L"PackageA", L"{22D1DDBA-284D-40A7-BD14-95EA07906F21}", BURN_DEPENDENCY_ACTION_UNREGISTER);
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
-            ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
-            ValidateExecuteUncachePackage(pPlan, fRollback, dwIndex++, L"PatchA");
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
             ValidateExecutePackageProvider(pPlan, fRollback, dwIndex++, L"PatchA", BURN_DEPENDENCY_ACTION_UNREGISTER);
             ValidateExecuteCheckpoint(pPlan, fRollback, dwIndex++, dwExecuteCheckpointId++);
